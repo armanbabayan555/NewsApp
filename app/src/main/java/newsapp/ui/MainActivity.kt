@@ -16,10 +16,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.text.font.FontWeight
 import coil.compose.rememberAsyncImagePainter
-import coil.compose.rememberImagePainter
 import newsapp.data.Status
 import newsapp.model.NewsModel
 
@@ -27,9 +27,11 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("UnusedMaterialScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
             MaterialTheme {
-                val viewModel: MainViewModel = MainViewModel()
+                val viewModel = MainViewModel()
+                viewModel.loadNews()
                 val newsResource by viewModel.newsResource.observeAsState()
                 Scaffold(
                     topBar = {
@@ -71,28 +73,38 @@ fun NewsList(newsList: List<NewsModel>?) {
 
 @Composable
 fun NewsItem(news: NewsModel) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp)
+    Card(
+        border = BorderStroke(2.dp,Color.Gray),
+        modifier = Modifier.padding(vertical = 6.dp, horizontal = 5.dp)
     ) {
-        Image(
-            painter = rememberAsyncImagePainter(news.imageUrl),
-            contentDescription = "News Image",
+        Row(
             modifier = Modifier
-                .size(100.dp)
-                .align(Alignment.CenterVertically),
-            contentScale = ContentScale.Crop
-        )
-
-        Column(
-            modifier = Modifier
-                .padding(start = 8.dp)
-                .align(Alignment.CenterVertically)
+                .fillMaxWidth()
+                .padding(8.dp)
         ) {
-            Text(text = news.source, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Text(text = news.author, fontWeight = FontWeight.Normal, fontSize = 14.sp, color = Color.Gray)
-            Text(text = news.title, fontWeight = FontWeight.Normal, fontSize = 14.sp)
+            Image(
+                painter = rememberAsyncImagePainter(news.imageUrl),
+                contentDescription = "Image",
+                modifier = Modifier
+                    .size(100.dp)
+                    .align(Alignment.CenterVertically),
+                contentScale = ContentScale.Crop
+            )
+
+            Column(
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .align(Alignment.CenterVertically)
+            ) {
+                Text(text = news.source, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(
+                    text = news.author,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 14.sp,
+                    color = Color.Red
+                )
+                Text(text = news.title, fontWeight = FontWeight.Normal, fontSize = 14.sp)
+            }
         }
     }
 }
