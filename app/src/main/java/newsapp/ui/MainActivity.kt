@@ -36,6 +36,9 @@ import com.google.gson.Gson
 import newsapp.model.NewsModel
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import androidx.compose.foundation.lazy.rememberLazyListState
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 
 class MainActivity : ComponentActivity() {
     @SuppressLint("UnusedMaterialScaffoldPaddingParameter")
@@ -47,10 +50,22 @@ class MainActivity : ComponentActivity() {
                 val viewModel = MainViewModel()
                 viewModel.loadNews()
                 val newsResource by viewModel.newsResource.observeAsState()
+                val isRefreshRequested = remember { mutableStateOf(false) }
+                val currentCategory = remember { mutableStateOf("") }
+
+
+                LaunchedEffect(isRefreshRequested.value, isRefreshRequested.value) {
+                    if (isRefreshRequested.value) {
+                        viewModel.loadNews(category = currentCategory.value)
+                        isRefreshRequested.value = false
+                    }
+                }
+
                 Scaffold(
                     topBar = {
                         SearchBar(
                             onFilterSelected = { filter ->
+                                currentCategory.value = filter
                                 viewModel.loadNews(category = filter)
                             },
                             onSearchClicked = { query ->
@@ -67,10 +82,18 @@ class MainActivity : ComponentActivity() {
                         composable(Screen.NewsList.route) {
                             when (newsResource?.status) {
                                 Status.LOADING -> CircularProgressIndicator()
-                                Status.OK -> NewsList(
-                                    navController = navController,
-                                    newsList = newsResource?.data
-                                )
+                                Status.OK -> {
+                                    val isRefreshRequested = remember { mutableStateOf(false) }
+                                    NewsList(
+                                        navController = navController,
+                                        newsList = newsResource?.data,
+                                        isRefreshRequested = isRefreshRequested
+                                    )
+                                    if (isRefreshRequested.value) {
+                                        viewModel.refreshNews()
+                                        isRefreshRequested.value = false
+                                    }
+                                }
                                 Status.ERROR -> Text("Error loading news")
                                 else -> {}
                             }
@@ -160,18 +183,26 @@ fun FilterMenu(onFilterSelected: (String) -> Unit) {
 }
 
 @Composable
-fun NewsList(navController: NavHostController, newsList: List<NewsModel>?) {
-    if (newsList.isNullOrEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("No Results Found")
-        }
-    } else {
-        LazyColumn {
-            items(items = newsList) { news ->
-                NewsItem(navController, news = news)
+fun NewsList(navController: NavHostController, newsList: List<NewsModel>?, isRefreshRequested: MutableState<Boolean>) {
+    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isRefreshRequested.value)
+    val lazyListState = rememberLazyListState()
+
+    SwipeRefresh(
+        state = swipeRefreshState,
+        onRefresh = { isRefreshRequested.value = true },
+    ) {
+        if (newsList.isNullOrEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("No Results Found")
+            }
+        } else {
+            LazyColumn(state = lazyListState) {
+                items(items = newsList) { news ->
+                    NewsItem(navController, news = news)
+                }
             }
         }
     }
