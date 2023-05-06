@@ -7,12 +7,17 @@ import retrofit2.Response
 class MyRepo {
     suspend fun getNews(category: String? = null, searchQuery: String? = null): ResponseModel {
         val res: Response<FullJson> = when {
-            category != null && searchQuery == null -> {
+            category == "none" && searchQuery == null -> {
+                RetrofitHelper.getInstance()
+                    .create(MyApiService::class.java)
+                    .fetchNews(country = "us")
+            }
+            (category != null && category != "none") && searchQuery == null -> {
                 RetrofitHelper.getInstance()
                     .create(MyApiService::class.java)
                     .fetchNews(country = "us", category = category)
             }
-            category != null && searchQuery != null -> {
+            (category != null && category != "none") && searchQuery != null -> {
                 RetrofitHelper.getInstance()
                     .create(MyApiService::class.java)
                     .fetchNews(country = "us", category = category, searchQuery = searchQuery)

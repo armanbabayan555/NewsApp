@@ -18,6 +18,9 @@ import androidx.compose.ui.unit.sp
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.text.font.FontWeight
 import coil.compose.rememberAsyncImagePainter
@@ -46,9 +49,17 @@ class MainActivity : ComponentActivity() {
                 val newsResource by viewModel.newsResource.observeAsState()
                 Scaffold(
                     topBar = {
-                        SearchBar(onFilterSelected = { filter ->
-                            viewModel.loadNews(category = filter)
-                        })
+                        SearchBar(
+                            onFilterSelected = { filter ->
+                                viewModel.loadNews(category = filter)
+                            },
+                            onSearchClicked = { query ->
+                                viewModel.loadNews(searchQuery = query)
+                            },
+                            onClearClicked = {
+                                viewModel.loadNews()
+                            }
+                        )
                     }
                 ) {
                     val navController = rememberNavController()
@@ -88,24 +99,40 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun SearchBar(onFilterSelected: (String) -> Unit) {
+fun SearchBar(
+    onFilterSelected: (String) -> Unit,
+    onSearchClicked: (String) -> Unit,
+    onClearClicked: () -> Unit
+) {
     var searchText by remember { mutableStateOf("") }
     Column {
-        TextField(
-            value = searchText,
-            onValueChange = { searchText = it },
-            label = { Text("Search") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            TextField(
+                value = searchText,
+                onValueChange = { searchText = it },
+                label = { Text("Search") },
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = { onSearchClicked(searchText) }) {
+                Icon(Icons.Filled.Search, contentDescription = "Search")
+            }
+            IconButton(onClick = { onClearClicked(); searchText = "" }) {
+                Icon(Icons.Filled.Clear, contentDescription = "Clear")
+            }
+        }
         FilterMenu(onFilterSelected = onFilterSelected)
     }
 }
 
+
 @Composable
 fun FilterMenu(onFilterSelected: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    val categories = listOf("Business", "Entertainment", "General", "Health")
+    val categories = listOf("None", "Business", "Entertainment", "General", "Health")
     var selectedCategory by remember { mutableStateOf(categories[0]) }
     Box(modifier = Modifier.fillMaxWidth()) {
         TextButton(
@@ -134,12 +161,22 @@ fun FilterMenu(onFilterSelected: (String) -> Unit) {
 
 @Composable
 fun NewsList(navController: NavHostController, newsList: List<NewsModel>?) {
-    LazyColumn {
-        items(items = newsList ?: emptyList()) { news ->
-            NewsItem(navController, news = news)
+    if (newsList.isNullOrEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("No Results Found")
+        }
+    } else {
+        LazyColumn {
+            items(items = newsList) { news ->
+                NewsItem(navController, news = news)
+            }
         }
     }
 }
+
 
 @Composable
 fun NewsItem(navController: NavHostController, news: NewsModel) {
