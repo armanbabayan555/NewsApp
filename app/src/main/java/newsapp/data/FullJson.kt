@@ -22,7 +22,10 @@ data class ArticleResponse(
     val title: String?,
 
     @SerializedName("urlToImage")
-    val urlToImage: String?
+    val urlToImage: String?,
+
+    @SerializedName("description")
+    val description: String?
 )
 
 data class Source(

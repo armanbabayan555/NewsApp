@@ -15,9 +15,19 @@
  */
 package newsapp.model
 
+import com.google.gson.Gson
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+
 data class NewsModel(
     val source: String,
     val author: String,
     val title: String,
-    val imageUrl: String
-)
+    val imageUrl: String,
+    val description: String
+) {
+    fun toUrlEncodedString(): String {
+        val jsonString = Gson().toJson(this)
+        return URLEncoder.encode(jsonString, StandardCharsets.UTF_8.toString())
+    }
+}

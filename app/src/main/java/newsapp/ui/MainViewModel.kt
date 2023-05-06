@@ -14,16 +14,18 @@ data class Resource<T>(val status: Status, val data: T?)
 
 class MainViewModel : ViewModel() {
 
+    private var _status = MutableLiveData(Status.LOADING)
     private val _newsResource: MutableLiveData<Resource<List<NewsModel>>> = MutableLiveData()
+    val status: LiveData<Status> = _status
     val newsResource: LiveData<Resource<List<NewsModel>>> = _newsResource
 
-    fun loadNews() {
+    fun loadNews(category: String? = null, searchQuery: String? = null) {
         viewModelScope.launch {
-            _newsResource.postValue(Resource(Status.LOADING, null))
-            val loadedItems = MyRepo().getNews()
+            val loadedItems = MyRepo().getNews(category = category, searchQuery = searchQuery)
             val loadedNews = loadedItems.newsModels
             val loadedStatus = loadedItems.status
             if (loadedStatus.isNotBlank()) {
+                _status.postValue(Status.LOADING)
                 _newsResource.postValue(Resource(Status.OK, loadedNews))
             } else {
                 _newsResource.postValue(Resource(Status.ERROR, null))

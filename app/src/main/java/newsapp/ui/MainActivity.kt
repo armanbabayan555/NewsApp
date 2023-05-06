@@ -17,11 +17,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.text.font.FontWeight
 import coil.compose.rememberAsyncImagePainter
 import newsapp.data.Status
+import androidx.compose.runtime.Composable
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.google.gson.Gson
 import newsapp.model.NewsModel
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 
 class MainActivity : ComponentActivity() {
     @SuppressLint("UnusedMaterialScaffoldPaddingParameter")
@@ -35,14 +46,40 @@ class MainActivity : ComponentActivity() {
                 val newsResource by viewModel.newsResource.observeAsState()
                 Scaffold(
                     topBar = {
-                        SearchBar()
+                        SearchBar(onFilterSelected = { filter ->
+                            viewModel.loadNews(category = filter)
+                        })
                     }
                 ) {
-                    when (newsResource?.status) {
-                        Status.LOADING -> CircularProgressIndicator()
-                        Status.OK -> NewsList(newsList = newsResource?.data)
-                        Status.ERROR -> Text("Error loading news")
-                        else -> {}
+                    val navController = rememberNavController()
+                    NavHost(navController, startDestination = Screen.NewsList.route) {
+                        composable(Screen.NewsList.route) {
+                            when (newsResource?.status) {
+                                Status.LOADING -> CircularProgressIndicator()
+                                Status.OK -> NewsList(
+                                    navController = navController,
+                                    newsList = newsResource?.data
+                                )
+                                Status.ERROR -> Text("Error loading news")
+                                else -> {}
+                            }
+                        }
+                        composable(
+                            route = Screen.NewsDetails.route,
+                            arguments = listOf(navArgument("news") { type = NavType.StringType })
+                        ) { entry ->
+                            val encodedNewsJson = entry.arguments?.getString("news")
+                            if (encodedNewsJson != null) {
+                                val decodedNewsJson = URLDecoder.decode(
+                                    encodedNewsJson,
+                                    StandardCharsets.UTF_8.toString()
+                                )
+                                val newsModel =
+                                    Gson().fromJson(decodedNewsJson, NewsModel::class.java)
+                                NewsDetails(news = newsModel)
+                            }
+                        }
+
                     }
                 }
             }
@@ -51,31 +88,68 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun SearchBar() {
+fun SearchBar(onFilterSelected: (String) -> Unit) {
     var searchText by remember { mutableStateOf("") }
-    TextField(
-        value = searchText,
-        onValueChange = { searchText = it },
-        label = { Text("Search") },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth()
-    )
+    Column {
+        TextField(
+            value = searchText,
+            onValueChange = { searchText = it },
+            label = { Text("Search") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        FilterMenu(onFilterSelected = onFilterSelected)
+    }
 }
 
 @Composable
-fun NewsList(newsList: List<NewsModel>?) {
-    LazyColumn {
-        items(items = newsList ?: emptyList()) { news ->
-            NewsItem(news = news)
+fun FilterMenu(onFilterSelected: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val categories = listOf("Business", "Entertainment", "General", "Health")
+    var selectedCategory by remember { mutableStateOf(categories[0]) }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        TextButton(
+            onClick = { expanded = !expanded },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Filters: $selectedCategory")
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            categories.forEach { category ->
+                DropdownMenuItem(onClick = {
+                    expanded = false
+                    selectedCategory = category
+                    onFilterSelected(category.toLowerCase())
+                }) {
+                    Text(category)
+                }
+            }
         }
     }
 }
 
 @Composable
-fun NewsItem(news: NewsModel) {
+fun NewsList(navController: NavHostController, newsList: List<NewsModel>?) {
+    LazyColumn {
+        items(items = newsList ?: emptyList()) { news ->
+            NewsItem(navController, news = news)
+        }
+    }
+}
+
+@Composable
+fun NewsItem(navController: NavHostController, news: NewsModel) {
     Card(
-        border = BorderStroke(2.dp,Color.Gray),
-        modifier = Modifier.padding(vertical = 6.dp, horizontal = 5.dp)
+        border = BorderStroke(2.dp, Color.Gray),
+        modifier = Modifier
+            .padding(vertical = 6.dp, horizontal = 5.dp)
+            .clickable {
+                navController.navigate(Screen.NewsDetails.routeWithArgs(news))
+            }
     ) {
         Row(
             modifier = Modifier
@@ -106,5 +180,12 @@ fun NewsItem(news: NewsModel) {
                 Text(text = news.title, fontWeight = FontWeight.Normal, fontSize = 14.sp)
             }
         }
+    }
+}
+
+sealed class Screen(val route: String) {
+    object NewsList : Screen("newsList")
+    object NewsDetails : Screen("newsDetails/{news}") {
+        fun routeWithArgs(news: NewsModel): String = "newsDetails/${news.toUrlEncodedString()}"
     }
 }
